@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logic Detective: Noir</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Grotesk:wght@600&display=swap');
+  
+  :root { --bg: #111; --text: #eee; --yellow: #f1c40f; --cyan: #00cec9; --red: #ff7675; --paper: #fdf6e3; }
+  body { margin: 0; font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+  h1, h2, h3 { font-family: 'Special Elite', cursive; color: var(--yellow); text-transform: uppercase; }
+  
+  .screen { display: none; min-height: 100vh; padding: 20px; flex-direction: column; justify-content: center; align-items: center; text-align: center; animation: fadeIn 1s; }
+  .active { display: flex; }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  /* Story Box */
+  .dialogue-box { background: #222; border: 3px solid var(--cyan); padding: 20px; max-width: 600px; font-size: 1.2rem; line-height: 1.6; border-left: 10px solid var(--cyan); text-align: left; margin-bottom: 20px; }
+  
+  /* Detective Notebook (Slot UI) */
+  .notebook { background: var(--paper); color: #111; border: 4px solid #000; padding: 25px; max-width: 700px; box-shadow: 8px 8px 0 var(--yellow); text-align: left; width: 90%; }
+  .clue-list { background: rgba(0,0,0,0.05); padding: 15px; border-left: 4px solid var(--red); margin-bottom: 20px; font-family: monospace; font-size: 1.1rem;}
+  
+  /* Mad Libs Slots */
+  .slot-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 1.2rem; margin-bottom: 15px; }
+  select { padding: 10px; font-family: inherit; font-size: 1rem; border: 2px solid #000; background: #fff; cursor: pointer; outline: none; box-shadow: 2px 2px 0 #000; }
+  select:focus { border-color: var(--cyan); }
+  
+  .btn { background: var(--bg); color: var(--yellow); border: 2px solid var(--yellow); padding: 12px 24px; font-size: 1.2rem; cursor: pointer; font-family: 'Special Elite', cursive; box-shadow: 4px 4px 0 var(--yellow); transition: 0.2s; }
+  .btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--yellow); background: var(--yellow); color: var(--bg); }
+  .btn-deduce { background: var(--red); color: #fff; border-color: #000; box-shadow: 4px 4px 0 #000; width: 100%; margin-top: 15px;}
+  .btn-deduce:hover { background: #000; color: var(--red); box-shadow: 2px 2px 0 var(--red); }
+  
+  #bg-anim { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; opacity: 0.35; filter: grayscale(50%); }
+
+  .popup-anim {
+    position: fixed;
+    top: 30%;
+    width: 250px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: scale(0.5);
+    z-index: 2000;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 4px solid #111;
+  }
+  .popup-anim.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .popup-right-side { right: -300px; }
+  .popup-right-side.show { right: 50px; }
+  .popup-left-side { left: -300px; }
+  .popup-left-side.show { left: 50px; }
+</style>
+</style>
+<style>
+  .term {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.2s, transform 0.1s;
+    border: 2px solid transparent;
+    display: inline-block;
+  }
+  .term:hover { background: rgba(0,0,0,0.1); }
+  .term.selected {
+    background: var(--cyan);
+    color: #000;
+    border-color: #000;
+    transform: scale(1.05);
+  }
+  .law-btn {
+    background: #5a3a22; color: #f4ecd8; border: none; padding: 10px;
+    cursor: pointer; font-family: inherit; border-radius: 4px; font-weight: bold;
+    transition: transform 0.1s;
+  }
+  .law-btn:hover { background: var(--cyan); color: #000; }
+  .law-btn:active { transform: scale(0.95); }
+
+  .popup-anim {
+    position: fixed;
+    top: 30%;
+    width: 250px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: scale(0.5);
+    z-index: 2000;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 4px solid #111;
+  }
+  .popup-anim.show {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .popup-right-side { right: -300px; }
+  .popup-right-side.show { right: 50px; }
+  .popup-left-side { left: -300px; }
+  .popup-left-side.show { left: 50px; }
+</style>
+</style>
+</head>
+<body>
+
+<!-- Title Screen -->
+<div id="screen-title" class="screen active" onclick="nextScreen()">
+  <img id="bg-anim" src="intro shot/ezgif-frame-001.jpg">
+  <h1 style="font-size: 4rem; margin-bottom: 0;">LOGIC DETECTIVE</h1>
+  <p style="font-size: 1.5rem; color: var(--cyan);">Tap anywhere to begin the investigation...</p>
+</div>
+
+<!-- Story Screen -->
+<div id="screen-story" class="screen">
+  <img id="story-bg" src="" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.3; filter: grayscale(30%);">
+  <h2 id="story-title">Level Title</h2>
+  <div id="story-text" class="dialogue-box">Story text goes here...</div>
+  <button class="btn" onclick="openNotebook()">Open Detective Notebook</button>
+</div>
+
+<!-- Notebook Transition Screen -->
+<div id="screen-transition" class="screen">
+  <img id="transition-bg-anim" src="thinking/ezgif-frame-001.jpg" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.4;">
+  <h1 style="font-size: 3.5rem; margin-bottom: 0;">ENTERING MIND PALACE</h1>
+  <p style="font-size: 1.2rem; color: var(--cyan); opacity: 0.8; margin-top: 10px;">Tap anywhere to skip...</p>
+</div>
+
+<!-- Success Animation Screen -->
+<div id="screen-success" class="screen">
+  <img id="success-bg-anim" src="got it/ezgif-frame-001.jpg" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.5;">
+  <h1 style="font-size: 4rem; margin-bottom: 0; color: var(--cyan);">DEDUCTION SUCCESSFUL</h1>
+  <p style="font-size: 1.5rem; color: var(--text);">Processing evidence...</p>
+  <p style="font-size: 1.2rem; color: var(--cyan); opacity: 0.8; margin-top: 10px;">Tap anywhere to skip...</p>
+</div>
+
+<!-- Boss Intro Screen -->
+<div id="screen-boss-intro" class="screen" onclick="loadStory()">
+  <img id="boss-bg-anim" src="rival/ezgif-frame-001.jpg" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.5;">
+  <h1 style="font-size: 4.5rem; margin-bottom: 0; color: var(--red);">FINAL SHOWDOWN</h1>
+  <p style="font-size: 1.5rem; color: var(--text);">Tap anywhere to confront your rival...</p>
+</div>
+
+<!-- Ending Animation Screen -->
+<div id="screen-ending" class="screen">
+  <img id="ending-bg-anim" src="the end/ezgif-frame-001.jpg" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.8;">
+  <h1 id="end-text" style="font-size: 6rem; margin-bottom: 20px; color: var(--red); display: none; text-shadow: 4px 4px 0 #000;">THE END</h1>
+  <button id="play-again-btn" class="btn" style="display: none; font-size: 2rem;" onclick="location.reload()">Play Again</button>
+</div>
+
+<!-- Notebook Screen -->
+<div id="screen-notebook" class="screen">
+  <img id="notebook-bg" src="" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; z-index: -2; opacity: 0.2; filter: grayscale(50%);">
+  
+  
+  <!-- Popups -->
+  <img id="popup-right" src="popups/right.jpeg" class="popup-anim popup-right-side">
+  <img id="popup-wrong" src="popups/wrong.jpeg" class="popup-anim popup-left-side">
+  <img id="popup-twowrongs" src="popups/twowrongs.jpeg" class="popup-anim popup-left-side">
+  
+  <div class="notebook" style="max-width: 1000px; display: flex; padding: 0; overflow: hidden; background: rgba(255, 255, 255, 0.9); box-shadow: 10px 10px 0 #000;">
+    
+    <!-- Left Page: Formula Sheet -->
+    <div style="flex: 1; padding: 25px; border-right: 2px dashed #999; overflow-y: auto;">
+      <h2 style="margin-top: 0; color: #111; text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px;">Reference Guide</h2>
+      <ul style="font-size: 1rem; line-height: 2; list-style-type: square; color: #111; padding-left: 20px;">
+        <li><b>Conjunctive Simplification:</b><br> P ^ Q &rarr; P</li>
+        <li><b>Disjunctive Amplification:</b><br> P, Q &rarr; P v Q</li>
+        <li><b>Law of Syllogism:</b><br> (P &rarr; Q) ^ (Q &rarr; R) &rarr; (P &rarr; R)</li>
+        <li><b>Modus Ponens:</b><br> P ^ (P &rarr; Q) &rarr; Q</li>
+        <li><b>Modus Tollens:</b><br> ~Q ^ (P &rarr; Q) &rarr; ~P</li>
+        <li><b>Disjunctive Syllogism:</b><br> (P v Q) ^ ~P &rarr; Q</li>
+        <li><b>Rule of Contradiction:</b><br> (~P &rarr; F0) &rarr; P</li>
+        <li><b>Equivalence:</b><br> (P &rarr; Q) &equiv; (~P v Q)</li>
+      </ul>
+    </div>
+
+    <!-- Right Page: Problem Solving -->
+    <div style="flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column;">
+      <h2 style="margin-top: 0; color: #111; text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px;">Case Investigation</h2>
+      
+      <div style="margin-bottom: 15px;">
+        <b style="color: #111; font-size: 1.1rem;">Variables:</b>
+        <div id="def-list" style="font-style: italic; font-size: 0.95rem; margin-top: 5px; color: #444;"></div>
+      </div>
+
+      <div style="text-align: center; margin: 20px 0; flex-grow: 1;">
+        <div style="font-weight: bold; color: #111; margin-bottom: 10px; font-size: 1.2rem;">Logical Equation:</div>
+        <div id="equation-container" style="font-size: 1.4rem; font-weight: bold; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 4px; border: 2px solid #111; font-family: monospace; color: #111; line-height: 2;">
+          <!-- Interactive terms go here -->
+        </div>
+        <p style="font-size: 0.85rem; color: #555; margin-top: 10px; font-weight: bold;">(Click terms in the equation to select them, then click a law below to simplify)</p>
+      </div>
+
+      <div style="background: rgba(0,0,0,0.05); padding: 15px; border: 2px solid #333;">
+        <b style="color: #111;">Apply Law of Inference:</b>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('MP')">Modus Ponens</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('MT')">Modus Tollens</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('HS')">Syllogism</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('DS')">Disj. Syllogism</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('CS')">Conj. Simp.</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('DA')">Disj. Amp.</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('EQ')">Equivalence</button>
+          <button class="btn" style="background: var(--cyan); color: #000; padding: 8px; font-size: 0.85rem; margin: 0;" onclick="applyLaw('CONTR')">Contradiction</button>
+        </div>
+        <div style="text-align: center; margin-top: 15px; display: flex; justify-content: center; gap: 15px;">
+          <button class="btn" style="background: var(--red); padding: 5px 15px; font-size: 0.9rem;" onclick="resetEquation()">Reset Equation</button>
+          <button class="btn" style="background: #88a; padding: 5px 15px; font-size: 0.9rem;" onclick="undoStep()">Undo Last Step</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let activePremises = [];
+let selectedIndexes = [];
+let wrongAttempts = 0;
+let historyStack = [];
+
+function showPopup(type) {
+  let el = document.getElementById('popup-' + type);
+  el.classList.add('show');
+  setTimeout(() => {
+    el.classList.remove('show');
+  }, 1500);
+}
+
+
+// --- GAME DATA (4 LEVELS) ---
+const LEVELS = [
+  {
+    title: "CASE 1: THE PAWN SHOP LIFT",
+    intro: "A mundane theft of an antique pocket watch from a local pawnbroker. The stakes are low, but we need to track down the culprit.",
+    outro: "You traced the lockpicking technique directly to Slippery Pete. Case closed.",
+    target: "R",
+    problem: "(P → Q) ^ (Q → R) ^ P ⊢ R",
+    definitions: [
+      "P: The back door lock was picked",
+      "Q: The thief has lockpicking skills",
+      "R: Slippery Pete is our suspect"
+    ],
+    clues: ["P → Q", "Q → R", "P"],
+    raw: ["P→Q", "Q→R", "P"],
+    optimalTerms: ["Q", "P→R", "R"]
+  },
+  {
+    title: "CASE 2: THE PHANTOM BREACH",
+    intro: "A highly classified prototype was stolen from a private tech firm. The precision suggests an insider, but it might be a remote hacker.",
+    outro: "By clearing the insider, you proved a remote hack was used. We found the encrypted manifesto.",
+    target: "R",
+    problem: "(~P v Q) ^ (P v R) ^ ~Q ⊢ R",
+    definitions: [
+      "P: The insider used a keycard",
+      "Q: The lobby alarm triggered",
+      "R: They used a remote hack"
+    ],
+    clues: ["~P v Q", "P v R", "~Q"],
+    raw: ["~PvQ", "PvR", "~Q"],
+    optimalTerms: ["~P", "P→Q", "R"]
+  },
+  {
+    title: "CASE 3: THE SILENCED WITNESS",
+    intro: "Slippery Pete was found dead in an alleyway. We need to track the killer's escape route through the rainy city.",
+    outro: "You deduced the killer's route! The CCTV footage reveals their face.",
+    target: "S",
+    problem: "(P ^ Q) ^ (P → ~R) ^ (~R → S) ⊢ S",
+    definitions: [
+      "P: The killer fled by car",
+      "Q: The killer dropped a muddy boot",
+      "R: The killer took the subway",
+      "S: The killer took the highway",
+      "T: The killer had an accomplice"
+    ],
+    clues: ["P ^ Q", "P → ~R", "~R → S"],
+    raw: ["P^Q", "P→~R", "~R→S"],
+    optimalTerms: ["P", "~R", "P→S", "S"]
+  },
+  {
+    title: "CASE 4: CHECKMATE",
+    intro: "You track your rival to an abandoned shipyard. He rigged a bomb. You must argue with him while safely defusing it.",
+    outro: "You correctly reasoned the sequence, defusing the trap and subduing your rival!",
+    target: "Q",
+    problem: "(~Q → R) ^ (R → S) ^ ~S ⊢ Q",
+    definitions: [
+      "Q: The blue wire is cut",
+      "R: The bomb activates",
+      "S: We hear a beep",
+      "F0: Contradiction"
+    ],
+    clues: ["~Q → R", "R → S", "~S"],
+    raw: ["~Q→R", "R→S", "~S"],
+    optimalTerms: ["~R", "~Q→S", "~RvS", "QvR", "Q"]
+  }
+];
+
+let curLvl = 0;
+let transitionTimeout = null;
+
+// --- ANIMATION SEQUENCE PLAYER ---
+let fIdx1 = 0, fIdx2 = 0, fIdx3 = 0, fIdx4 = 0, fIdx5 = 0;
+const framesIntro = [], framesThinking = [], framesSuccess = [], framesBoss = [], framesEnding = [];
+for (let i = 1; i <= 50; i++) framesIntro.push(`intro shot/ezgif-frame-${String(i).padStart(3, '0')}.jpg`);
+for (let i = 1; i <= 40; i++) framesThinking.push(`thinking/ezgif-frame-${String(i).padStart(3, '0')}.jpg`);
+for (let i = 1; i <= 50; i++) framesSuccess.push(`got it/ezgif-frame-${String(i).padStart(3, '0')}.jpg`);
+for (let i = 1; i <= 30; i++) framesBoss.push(`rival/ezgif-frame-${String(i).padStart(3, '0')}.jpg`);
+for (let i = 1; i <= 50; i++) framesEnding.push(`the end/ezgif-frame-${String(i).padStart(3, '0')}.jpg`);
+
+// Preload first few to prevent initial flicker
+framesIntro.slice(0, 5).forEach(src => { let img = new Image(); img.src = src; });
+framesThinking.slice(0, 5).forEach(src => { let img = new Image(); img.src = src; });
+framesSuccess.slice(0, 5).forEach(src => { let img = new Image(); img.src = src; });
+framesBoss.slice(0, 5).forEach(src => { let img = new Image(); img.src = src; });
+framesEnding.slice(0, 5).forEach(src => { let img = new Image(); img.src = src; });
+
+setInterval(() => {
+  // Title Screen Animation
+  if (document.getElementById('screen-title').classList.contains('active')) {
+    document.getElementById('bg-anim').src = framesIntro[fIdx1];
+    fIdx1 = (fIdx1 + 1) % 50;
+  }
+  // Transition (Mind Palace) Screen Animation
+  if (document.getElementById('screen-transition').classList.contains('active')) {
+    document.getElementById('transition-bg-anim').src = framesThinking[fIdx2];
+    fIdx2 = (fIdx2 + 1) % 40;
+  }
+  // Success Screen Animation
+  if (document.getElementById('screen-success').classList.contains('active')) {
+    document.getElementById('success-bg-anim').src = framesSuccess[fIdx3];
+    fIdx3 = (fIdx3 + 1) % 50;
+  }
+  // Boss Intro Animation
+  if (document.getElementById('screen-boss-intro').classList.contains('active')) {
+    document.getElementById('boss-bg-anim').src = framesBoss[fIdx4];
+    fIdx4 = (fIdx4 + 1) % 30;
+  }
+  // Ending Animation (Plays once, stops on last frame, reveals text on last 4 frames)
+  if (document.getElementById('screen-ending').classList.contains('active')) {
+    document.getElementById('ending-bg-anim').src = framesEnding[fIdx5];
+    if (fIdx5 < 49) {
+      fIdx5++;
+    }
+    if (fIdx5 >= 46) {
+      document.getElementById('end-text').style.display = 'block';
+      document.getElementById('play-again-btn').style.display = 'inline-block';
+    }
+  }
+}, 80);
+
+// --- STATE MANAGEMENT ---
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function nextScreen() {
+  loadStory();
+}
+
+function loadStory() {
+  const L = LEVELS[curLvl];
+  document.getElementById('story-title').innerText = L.title;
+  document.getElementById('story-text').innerHTML = L.intro;
+  
+  // Set the specific case background for the story and notebook screens
+  const bgPath = `case backgorunds/case${curLvl + 1}.png`;
+  document.getElementById('story-bg').src = bgPath;
+  document.getElementById('notebook-bg').src = bgPath;
+  
+  // Fix: Reset the button so it leads to the notebook for the new case
+  const btn = document.querySelector('#screen-story button');
+  btn.innerText = "Open Detective Notebook";
+  btn.onclick = () => openNotebook();
+  
+  showScreen('screen-story');
+}
+
+function openNotebook() {
+  const L = LEVELS[curLvl];
+  let defHtml = "";
+  if (L.definitions) {
+    L.definitions.forEach(d => { defHtml += `<div>${d}</div>`; });
+  }
+  document.getElementById('def-list').innerHTML = defHtml;
+  
+  resetEquation();
+  wrongAttempts = 0;
+  
+  fIdx2 = 0; 
+  document.getElementById('transition-bg-anim').src = framesThinking[0];
+  
+  const skipMindPalace = () => {
+    clearTimeout(transitionTimeout);
+    showScreen('screen-notebook');
+  };
+  
+  document.getElementById('screen-transition').onclick = skipMindPalace;
+  showScreen('screen-transition');
+  
+  clearTimeout(transitionTimeout);
+  transitionTimeout = setTimeout(skipMindPalace, 3200);
+}
+
+function resetEquation() {
+  activePremises = [...LEVELS[curLvl].raw];
+  selectedIndexes = [];
+  wrongAttempts = 0;
+  historyStack = [];
+  renderEquation();
+}
+
+function toggleSelect(index) {
+  if (selectedIndexes.includes(index)) {
+    selectedIndexes = selectedIndexes.filter(i => i !== index);
+  } else {
+    if (selectedIndexes.length >= 2) selectedIndexes.shift();
+    selectedIndexes.push(index);
+  }
+  renderEquation();
+}
+
+function renderEquation() {
+  let html = "";
+  activePremises.forEach((premise, i) => {
+    let selClass = selectedIndexes.includes(i) ? "selected" : "";
+    html += `<span class="term ${selClass}" onclick="toggleSelect(${i})">(${premise})</span>`;
+    if (i < activePremises.length - 1) html += " ^ ";
+  });
+  html += `<br><br><span style="color:var(--red); font-size: 2rem;"> ⊢ ${LEVELS[curLvl].target}</span>`;
+  document.getElementById('equation-container').innerHTML = html;
+}
+
+// --- LOGIC ENGINE (Math Parser) ---
+function checkRule(rule, p1, p2) {
+  if(!p1) return null;
+  const s1 = p1.replace(/\s+/g, '');
+  const s2 = p2 ? p2.replace(/\s+/g, '') : '';
+  const clean = (s) => s.replace(/~~/g, '');
+  const neg = (s) => clean(s.startsWith('~') ? s.substring(1) : '~' + s);
+
+  if (rule === 'MP') {
+    if (s2 === s1 + '→' + (s2.split('→')[1])) return s2.split('→')[1];
+    if (s1 === s2 + '→' + (s1.split('→')[1])) return s1.split('→')[1];
+  }
+  if (rule === 'MT') {
+    let parts1 = s1.split('→'), parts2 = s2.split('→');
+    if (parts2.length === 2 && s1 === neg(parts2[1])) return neg(parts2[0]);
+    if (parts1.length === 2 && s2 === neg(parts1[1])) return neg(parts1[0]);
+  }
+  if (rule === 'DS') {
+    let parts1 = s1.split('v'), parts2 = s2.split('v');
+    if (parts1.length === 2) {
+      if (s2 === neg(parts1[0])) return parts1[1];
+      if (s2 === neg(parts1[1])) return parts1[0];
+    }
+    if (parts2.length === 2) {
+      if (s1 === neg(parts2[0])) return parts2[1];
+      if (s1 === neg(parts2[1])) return parts2[0];
+    }
+  }
+  if (rule === 'HS') {
+    let p1_parts = s1.split('→'), p2_parts = s2.split('→');
+    if (p1_parts.length === 2 && p2_parts.length === 2) {
+      if (p1_parts[1] === p2_parts[0]) return p1_parts[0] + '→' + p2_parts[1];
+      if (p2_parts[1] === p1_parts[0]) return p2_parts[0] + '→' + p1_parts[1];
+    }
+  }
+  if (rule === 'CS') {
+    let parts = s1.split('^');
+    if (parts.length === 2) return parts[0]; 
+    let parts2 = s2.split('^');
+    if (parts2.length === 2) return parts2[0];
+  }
+  if (rule === 'EQ') {
+     let parts = s1.split('v');
+     if (parts.length === 2) return neg(parts[0]) + '→' + parts[1];
+     let arr = s1.split('→');
+     if (arr.length === 2) return neg(arr[0]) + 'v' + arr[1];
+     let parts2 = s2.split('v');
+     if (parts2.length === 2) return neg(parts2[0]) + '→' + parts2[1];
+     let arr2 = s2.split('→');
+     if (arr2.length === 2) return neg(arr2[0]) + 'v' + arr2[1];
+  }
+  if (rule === 'DA') {
+     if (s1 && s2 && s1 !== s2) return s1 + 'v' + s2;
+  }
+  if (rule === 'CONTR') {
+     let arr = s1.split('→');
+     if (arr.length === 2 && arr[1] === 'F0') return neg(arr[0]);
+     let arr2 = s2.split('→');
+     if (arr2.length === 2 && arr2[1] === 'F0') return neg(arr2[0]);
+  }
+  if (s1 && s2 && (s1 === neg(s2) || s2 === neg(s1))) {
+     return 'F0';
+  }
+  return null;
+}
+
+function applyLaw(rule) {
+  if (selectedIndexes.length === 0) return alert("Click on at least one premise in the equation above first!");
+  
+  let p1 = activePremises[selectedIndexes[0]];
+  let p2 = selectedIndexes.length > 1 ? activePremises[selectedIndexes[1]] : null;
+  
+  let result = checkRule(rule, p1, p2) || checkRule(rule, p2, p1);
+  
+  if (!result) {
+    wrongAttempts++;
+    if (wrongAttempts >= 2) {
+      showPopup('twowrongs');
+      wrongAttempts = 0;
+    } else {
+      showPopup('wrong');
+    }
+    return;
+  }
+  
+  wrongAttempts = 0;
+  
+  let cleanResult = result.replace(/\s+/g, '');
+  let isOptimal = LEVELS[curLvl].optimalTerms && LEVELS[curLvl].optimalTerms.includes(cleanResult);
+  
+  if (isOptimal || cleanResult === LEVELS[curLvl].target) {
+    showPopup('right');
+  }
+  
+  // Save current state to history before changing
+  historyStack.push([...activePremises]);
+  
+  let newPremises = [];
+  for (let i = 0; i < activePremises.length; i++) {
+     if (!selectedIndexes.includes(i)) newPremises.push(activePremises[i]);
+  }
+  newPremises.push(result);
+  
+  activePremises = newPremises;
+  selectedIndexes = [];
+  renderEquation();
+  
+  if (activePremises.includes(LEVELS[curLvl].target)) {
+     setTimeout(() => {
+        triggerSuccess();
+     }, 1500);
+  }
+}
+
+function undoStep() {
+  if (historyStack.length > 0) {
+    activePremises = historyStack.pop();
+    selectedIndexes = [];
+    renderEquation();
+  }
+}
+
+function triggerSuccess() {
+  fIdx3 = 0;
+  document.getElementById('success-bg-anim').src = framesSuccess[0];
+  showScreen('screen-success');
+  
+  const skipSuccess = () => {
+    clearTimeout(transitionTimeout);
+    document.getElementById('story-text').innerHTML = LEVELS[curLvl].outro;
+    document.getElementById('story-title').innerText = "CASE SOLVED";
+    showScreen('screen-story');
+    
+    curLvl++;
+    if(curLvl >= LEVELS.length) {
+      document.querySelector('#screen-story button').innerText = "Tap to Continue";
+      document.querySelector('#screen-story button').onclick = () => {
+        fIdx5 = 0;
+        document.getElementById('end-text').style.display = 'none';
+        document.getElementById('play-again-btn').style.display = 'none';
+        showScreen('screen-ending');
+      };
+    } else {
+      document.querySelector('#screen-story button').innerText = "Proceed to Next Case";
+      document.querySelector('#screen-story button').onclick = () => {
+        if (curLvl === 3) showScreen('screen-boss-intro');
+        else loadStory();
+      };
+    }
+  };
+  
+  document.getElementById('screen-success').onclick = skipSuccess;
+  clearTimeout(transitionTimeout);
+  transitionTimeout = setTimeout(skipSuccess, 4000);
+}
+
+</script>
+</body>
+</html>
